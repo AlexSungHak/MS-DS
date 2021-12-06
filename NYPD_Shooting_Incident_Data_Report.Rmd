@@ -1,0 +1,176 @@
+---
+title: "NYPD Shooting Incident Data Report"
+author: "SungHak Hong"
+date: '2021 11 27 '
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Project Step 1: Start an Rmd Document
+
+```{r library, message=FALSE, warning=FALSE}
+#Import packages
+library(tidyverse) #supports loading, filtering, and saving database
+library(lubridate) #manages time and date data on database
+library(ggplot2) #supports creating graphs
+```
+
+
+```{r load}
+#Load Data
+#The function "read_csv" imports CSV file to DataFrame format
+df = read_csv("C:\\Users\\vmfl7\\Downloads\\NYPD_Shooting_Incident_Data__Historic_.csv")
+#check if the load is completed
+head(df)
+
+```
+
+\newpage
+
+## Project Step 2: Tidy and Transform Your Data
+
+```{r}
+#select columns what I will use in this project
+df2 = df %>% select(INCIDENT_KEY, OCCUR_DATE, OCCUR_TIME, BORO, STATISTICAL_MURDER_FLAG,
+                    PERP_AGE_GROUP, PERP_SEX, PERP_RACE, VIC_AGE_GROUP, VIC_SEX, VIC_RACE)
+#convert blank values and "U" as "UNKNOWN"
+df2 = df2%>%
+  replace_na(list(PERP_AGE_GROUP = "UNKNOWN", PERP_SEX = "UNKNOWN", PERP_RACE = "UNKNOWN"))
+df2$PERP_SEX = recode(df2$PERP_SEX, U = "UNKNOWN")
+df2$VIC_SEX   = recode(df2$VIC_SEX, U = "UNKNOWN")
+
+#Remove unrealistic values on perpetrator age group
+df2 = subset(df2, PERP_AGE_GROUP == "<18" | PERP_AGE_GROUP == "18-24" | 
+               PERP_AGE_GROUP == "25-44" | PERP_AGE_GROUP == "45-64" | 
+               PERP_AGE_GROUP == "65+" | PERP_AGE_GROUP == "UNKNOWN")
+
+# Change data type of INCIDENT_KEY to character, and others to factor
+df2$INCIDENT_KEY = as.character(df2$INCIDENT_KEY)
+df2$BORO = as.factor(df2$BORO)
+df2$PERP_AGE_GROUP = as.factor(df2$PERP_AGE_GROUP)
+df2$PERP_SEX = as.factor(df2$PERP_SEX)
+df2$PERP_RACE = as.factor(df2$PERP_RACE)
+df2$VIC_AGE_GROUP = as.factor(df2$VIC_AGE_GROUP)
+df2$VIC_SEX = as.factor(df2$VIC_SEX)
+df2$VIC_RACE = as.factor(df2$VIC_RACE)
+
+
+#Show summary of the cleaned data
+summary(df2)
+```
+
+\newpage
+
+## Project Step 3: Add Vidualizations and Analysis
+
+1. Place: which region in New York has the most incident cases?
+
+The table and histogram below show the number of cases in 5 regions including: Bronx, Brooklyn, Manhattan, Queens, and Staten Island. 
+
+```{r}
+summary(df2$BORO)
+
+g1 <- ggplot(df2, aes(x = BORO)) +
+  geom_bar(width=0.5) +
+  labs(title = "Incident Cases by region in NY", x = "Region", 
+       y = "Amount of Incident Cases")
+
+g1
+
+
+```
+
+* Shooting incidents happened at Brooklyn the most followed by Bronx, Queens, Manhattan, and Staten Island, respectively.
+
+\newpage
+
+2. Time: What time do incident cases occur the most?
+
+The below histograms and line graph show the number of cases by specific time period: years, months, days, and hours.
+
+```{r}
+df2$OCCUR_mdy = mdy(df2$OCCUR_DATE)
+df2$OCCUR_YEAR = year(df2$OCCUR_mdy)
+df2$OCCUR_MONTH = month(df2$OCCUR_mdy)
+df2$OCCUR_DAY = wday(df2$OCCUR_mdy)
+df2$OCCUR_HOUR = hour(df2$OCCUR_TIME)
+
+#Year
+g2 <- ggplot(df2, aes(x = OCCUR_YEAR)) +
+  geom_bar(width=0.5) +
+  labs(title = "Incident Cases by Year in NY", x = "Year", y = "Amount of Incident Cases")
+
+g2
+```
+
+* From 2006 through 2019, the incident decreased continuously.
+* In 2020, the cases increased significantly (almost doubled from 2019).
+
+\newpage
+
+```{r}
+g3 <- ggplot(df2, aes(x = OCCUR_MONTH)) +
+  geom_bar(width=0.5) +
+  labs(title = "Incident Cases by Month in NY", x = "Month", y = "Amount of Incident Cases")
+g3 <- g3 + scale_x_continuous(breaks=1:12,
+  labels=c("Jan","Feb","Mar","Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"))
+
+g3
+```
+
+* The incident cases occurred the most in July and the least in February.
+* There were more shooting incidents during summer (June, July, August) than any other seasons.
+
+\newpage
+
+```{r}
+g4 <- ggplot(df2, aes(x = OCCUR_DAY)) +
+  geom_bar(width=0.5) +
+  labs(title = "Incident Cases by Day in NY", x = "Day", y = "Amount of Incident Cases")
+
+g4 <- g4 + scale_x_continuous(breaks=1:7,
+  labels=c("Sun", "Mon","Tue","Wed","Thu","Fri","Sat"))
+  
+
+g4
+```
+
+* The incident cases occurred the most on weekends(Sunday, Saturday).
+
+\newpage
+
+```{r}
+df3 = df2 %>%
+  group_by(OCCUR_HOUR) %>%
+  count()
+
+g5 <- ggplot(df3, aes(x = OCCUR_HOUR, y = n)) +
+  geom_line() +
+  geom_point() +
+  labs(title = "Incident Cases by Hour in NY", x = "Hour", y = "Amount of Incident Cases")  
+
+g5
+
+```
+
+* Shooting occurred the most at 23pm, and the least at 9 am.
+* Shooting occurred more at night than at daytime.
+
+
+\newpage
+
+## Project Step 4: Add Bias Identification
+I have never been to New York City, and therefore, all I’ve heard about New York City’s public safety is from news and friends who live there. Before doing this project, I thought that Manhattan is the most dangerous place in New York City. However, the data show that the shooting incidents occurred in Brooklyn the most.
+Another interesting point I realized from the data is that the number of shooting incidents had gradually decreased from 2006 through 2019 and suddenly increased significantly in 2020. I think the increase might have been caused by the COVID-19 pandemic. However, this assumption cannot be supported only by the data used for this project and requires further research and analyses.
+
+
+
+## Reference
+<https://catalog.data.gov/dataset/nypd-shooting-incident-data-historic>
+\newline
+<https://www.r-graph-gallery.com/index.html>
